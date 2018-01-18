@@ -1,5 +1,6 @@
 package com.example.jiesean.bledemo;
 
+import android.Manifest;
 import android.annotation.TargetApi;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -16,22 +17,26 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.os.Build;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
 
 public class MainActivity extends AppCompatActivity {
 
-    private String Tag = "MainActivity";
+    private String TAG = "MainActivity";
 
     //目标设备的名称，可根据自己目标设备的不同去修改该名称来完成连接
-    private String mTargetDeviceName = "MI";
+    private String mTargetDeviceName = "mate9";
 
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
@@ -45,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
 
         mScanCallback = new LeScanCallback();
 
+        checkBluetoothPermission();
         initBluetooth();
     }
 
@@ -57,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
         //get Bluetooth Adapter
         mBluetoothAdapter = mBluetoothManager.getAdapter();
         if (mBluetoothAdapter == null) {//platform not support bluetooth
-            Log.d(Tag, "Bluetooth is not support");
+            Log.d(TAG, "Bluetooth is not support");
         }
         else{
             int status = mBluetoothAdapter.getState();
@@ -96,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-            //Log.d(Tag, "onScanResult");
+            //Log.d(TAG, "onScanResult");
             if(result != null){
                 System.out.println("扫面到设备：" + result.getDevice().getName() + "  " + result.getDevice().getAddress());
 
@@ -124,7 +130,7 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            Log.d(Tag, "onConnectionStateChange status:" + status + "  newState:" + newState);
+            Log.d(TAG, "onConnectionStateChange status:" + status + "  newState:" + newState);
             if (status == 0) {
                 gatt.discoverServices();
             }
@@ -138,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            Log.d(Tag, "onServicesDiscovered status" + status);
+            Log.d(TAG, "onServicesDiscovered status" + status);
             mServiceList = gatt.getServices();
             if (mServiceList != null) {
                 System.out.println(mServiceList);
@@ -153,6 +159,9 @@ public class MainActivity extends AppCompatActivity {
                     System.out.println("characteristic: " + characteristic.getUuid() );
                 }
             }
+            Log.d(TAG, "onServicesDiscovered: readCharacteristic: " +
+                    gatt.readCharacteristic(gatt.getService(UUID.fromString("0000180F-0000-1000-8000-00805f9b34fb")).
+                            getCharacteristic(UUID.fromString("00002A19-0000-1000-8000-00805f9b34fb"))));
         }
 
         /**
@@ -163,7 +172,7 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            Log.d(Tag, "onCharacteristicChanged");
+            Log.d(TAG, "onCharacteristicChanged");
         }
 
         /**
@@ -175,7 +184,7 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            Log.d(Tag, "onCharacteristicWrite");
+            Log.d(TAG, "onCharacteristicWrite");
         }
 
         /**
@@ -187,7 +196,10 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            Log.d(Tag, "onCharacteristicRead");
+            Log.d(TAG, "onCharacteristicRead: status=" + status);
+            Log.d(TAG, "onCharacteristicRead: UUID=" + characteristic.getUuid());
+            byte[] data = characteristic.getValue();
+            Log.d(TAG, "onCharacteristicRead: value=" + Arrays.toString(data));
         }
 
         /**
@@ -199,8 +211,38 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            Log.d(Tag, "onDescriptorWrite");
+            Log.d(TAG, "onDescriptorWrite");
         }
 
     };
+
+
+    /**
+     * 检查蓝牙权限
+     */
+    private void checkBluetoothPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            //校验是否已具有模糊定位权限
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
+            } else {
+            }
+        } else {
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                //权限被用户同意,做相应的事情
+                Log.i(TAG, "onRequestPermissionsResult: 权限被用户同意");
+            } else {
+                //权限被用户拒绝，做相应的事情
+                Log.i(TAG, "onRequestPermissionsResult: 权限被用户拒绝");
+            }
+        }
+    }
 }
