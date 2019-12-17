@@ -1,7 +1,6 @@
 package com.example.jiesean.bledemo;
 
 import android.Manifest;
-import android.annotation.TargetApi;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -13,10 +12,7 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.support.v4.app.ActivityCompat;
@@ -36,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
     private String TAG = "MainActivity";
 
     //目标设备的名称，可根据自己目标设备的不同去修改该名称来完成连接
-    private String mTargetDeviceName = "mate9";
+    private String mTargetDeviceName = "Mate9";
 
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
@@ -48,7 +44,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mScanCallback = new LeScanCallback();
+        if (Build.VERSION.SDK_INT >= 21) {
+            mScanCallback = new MyScanCallback();
+        }
 
         checkBluetoothPermission();
         initBluetooth();
@@ -64,8 +62,7 @@ public class MainActivity extends AppCompatActivity {
         mBluetoothAdapter = mBluetoothManager.getAdapter();
         if (mBluetoothAdapter == null) {//platform not support bluetooth
             Log.d(TAG, "Bluetooth is not support");
-        }
-        else{
+        } else {
             int status = mBluetoothAdapter.getState();
             //bluetooth is disabled
             if (status == BluetoothAdapter.STATE_OFF) {
@@ -78,33 +75,47 @@ public class MainActivity extends AppCompatActivity {
     /**
      * start Ble scan，扫描按钮的处理函数
      */
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     public void startScanLeDevices(View view) {
-        //Android 4.3以上，Android 5.0以下
-        //mBluetoothAdapter.startLeScan(BluetoothAdapter.LeScanCallback)
+        if (Build.VERSION.SDK_INT >= 18 && Build.VERSION.SDK_INT < 21) {
+            //Android 4.3以上，Android 5.0以下
+            mBluetoothAdapter.startLeScan(mLeScanCallback);
 
-        //Android 5.0以上，扫描的结果在mScanCallback中进行处理
-        mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
-        mBluetoothLeScanner.startScan(mScanCallback);
+        } else if (Build.VERSION.SDK_INT >= 21) {
+            //Android 5.0以上，扫描的结果在mScanCallback中进行处理
+            mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
+            mBluetoothLeScanner.startScan(mScanCallback);
 
+        }
     }
+
+    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+        @Override
+        public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
+
+            Log.d(TAG, "BluetoothDevice  name=" + device.getName() + " address=" + device.getAddress());
+            if (mTargetDeviceName.equals(device.getName())) {
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            }
+
+        }
+    };
 
     /**
      * LE设备扫描结果返回
      */
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    private class LeScanCallback  extends ScanCallback{
+    private class MyScanCallback extends ScanCallback {
 
         /**
          * 扫描结果的回调，每次扫描到一个设备，就调用一次。
+         *
          * @param callbackType
          * @param result
          */
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             //Log.d(TAG, "onScanResult");
-            if(result != null){
-                System.out.println("扫面到设备：" + result.getDevice().getName() + "  " + result.getDevice().getAddress());
+            if (result != null) {
+                System.out.println("扫描到设备：" + result.getDevice().getName() + "  " + result.getDevice().getAddress());
 
                 //此处，我们尝试连接MI 设备
                 if (result.getDevice().getName() != null && mTargetDeviceName.equals(result.getDevice().getName())) {
@@ -114,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
-     }
+    }
 
     /**
      * gatt连接结果的返回
@@ -151,12 +162,12 @@ public class MainActivity extends AppCompatActivity {
                 System.out.println("Services num:" + mServiceList.size());
             }
 
-            for (BluetoothGattService service : mServiceList){
+            for (BluetoothGattService service : mServiceList) {
                 List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
                 System.out.println("扫描到Service：" + service.getUuid());
 
                 for (BluetoothGattCharacteristic characteristic : characteristics) {
-                    System.out.println("characteristic: " + characteristic.getUuid() );
+                    System.out.println("characteristic: " + characteristic.getUuid());
                 }
             }
             Log.d(TAG, "onServicesDiscovered: readCharacteristic: " +
